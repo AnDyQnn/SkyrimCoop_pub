@@ -1,0 +1,17 @@
+services:
+  skyrimcoop:
+    build: .
+    container_name: skyrimcoop
+    restart: unless-stopped
+    ports:
+      - "27015:27015/tcp"     # consoles
+      - "27015:27015/udp"     # room search answers (see Dockerfile about broadcasts)
+      - "8080:8080/tcp"       # web panel
+    volumes:
+      - skyrimcoop-data:/data # settings, shared world, bans survive restarts
+    environment:
+      - TZ=Europe/Moscow
+      - SKYCOOP_ROOM=Скайрим            # room name on first start (then: web panel)
+      - SKYCOOP_ADDRESS=192.168.1.100    # this PC in the home Wi-Fi (shown in the panel for typing in)
+volumes:
+  skyrimcoop-data:

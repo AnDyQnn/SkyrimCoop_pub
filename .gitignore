@@ -1,0 +1,13 @@
+build/
+deploy/
+out/
+*.elf
+*.nso
+*.npdm
+*.o
+*.d
+*.log
+*.exe
+__pycache__/
+.vscode/
+*.keys

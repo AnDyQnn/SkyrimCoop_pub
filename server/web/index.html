@@ -1,0 +1,334 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Skyrim Кооператив — сервер</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+SC:wght@600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#12110e; --bg2:#1a1813; --panel:#1f1c16; --panel2:#262219; --ink:#ebe3d2; --muted:#9d9382; --line:#3a3428;
+  --gold:#d6b16a; --gold2:#a8843f; --ok:#7fc58f; --bad:#e2735f; --chip:#2e291f; --field:#15130f;
+}
+* { box-sizing:border-box; }
+html, body { margin:0; background:var(--bg); color:var(--ink); font:15px/1.45 system-ui, "Segoe UI", sans-serif; }
+body { background: radial-gradient(1200px 500px at 50% -200px, var(--bg2), var(--bg)); min-height:100vh; }
+.title { font-family:"Cormorant SC", Georgia, serif; letter-spacing:1px; }
+header { padding:18px 20px 12px; display:flex; flex-wrap:wrap; gap:8px 20px; align-items:center; border-bottom:1px solid var(--line); }
+header h1 { margin:0; font-size:28px; color:var(--gold); }
+.status { font-weight:600; } .on { color:var(--ok); } .off { color:var(--bad); }
+.muted { color:var(--muted); }
+.addr { font-size:13px; }
+.addr b { color:var(--ink); font-weight:600; }
+main { display:grid; grid-template-columns: minmax(0,1.35fr) minmax(0,1fr); gap:16px; padding:16px 20px 28px; max-width:1500px; margin:0 auto; }
+@media (max-width: 980px) { main { grid-template-columns: 1fr; } }
+section { position:relative; background:linear-gradient(180deg, var(--panel2), var(--panel)); border:1px solid var(--line); border-radius:4px; padding:16px 18px; min-width:0;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.02), 0 6px 18px rgba(0,0,0,.25); }
+section::before, section::after { content:""; position:absolute; width:9px; height:9px; border:1px solid var(--gold2); background:var(--panel); transform:rotate(45deg); top:-5px; }
+section::before { left:14px; } section::after { right:14px; }
+h2 { margin:0 0 12px; font-size:19px; color:var(--gold); display:flex; align-items:center; gap:10px; }
+h2::after { content:""; flex:1; height:1px; background:linear-gradient(90deg, var(--gold2), transparent); }
+h3 { margin:16px 0 8px; font-size:16px; color:var(--gold); }
+.span2 { grid-column:1 / -1; }
+.stack { display:grid; gap:16px; align-content:start; min-width:0; }
+.chip { display:inline-block; background:var(--chip); border:1px solid var(--line); border-radius:999px; padding:0 8px; font-size:12px; margin:0 4px 4px 0; }
+button { font:inherit; border:1px solid var(--gold2); background:linear-gradient(180deg, var(--chip), var(--panel)); color:var(--ink); border-radius:3px; padding:5px 12px; cursor:pointer; }
+button:hover { border-color:var(--gold); color:var(--gold); }
+button.primary { background:linear-gradient(180deg, #3b3020, #2a2317); color:var(--gold); }
+button.danger { color:var(--bad); border-color:var(--line); }
+input, select { font:inherit; background:var(--field); color:var(--ink); border:1px solid var(--line); border-radius:3px; padding:5px 8px; min-width:0; }
+input:focus, select:focus { outline:none; border-color:var(--gold2); }
+.row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin:7px 0; }
+.grow { flex:1; }
+.mono { font:12.5px/1.45 ui-monospace, Consolas, monospace; }
+.box { overflow:auto; background:var(--field); border:1px solid var(--line); border-radius:3px; padding:8px 10px; white-space:pre-wrap; word-break:break-word; }
+#log { height:300px; } #chat { height:190px; white-space:normal; } #conOut { height:170px; }
+.who { color:var(--gold); font-weight:600; }
+.players { display:grid; gap:10px; }
+.pcard { border:1px solid var(--line); border-radius:3px; padding:10px 12px; background:var(--field); display:grid; grid-template-columns:minmax(0,1fr) auto; gap:4px 12px; align-items:center; }
+.pcard .name { font-size:17px; font-weight:600; }
+.pcard .meta { font-size:12.5px; color:var(--muted); }
+.pcard .lvl { color:var(--gold, #c8a45a); font-weight:600; margin-right:4px; }
+.bars { display:grid; gap:3px; margin:6px 0 4px; max-width:260px; }
+.bar { height:6px; border-radius:3px; background:rgba(255,255,255,.08); overflow:hidden; }
+.bar > i { display:block; height:100%; border-radius:3px; transition:width .4s; }
+.bar.hp > i { background:#b8322c; } .bar.mp > i { background:#2f6fc0; } .bar.sp > i { background:#3c9a4a; }
+.pcard .acts { grid-row:1 / span 2; grid-column:2; display:flex; gap:6px; flex-wrap:wrap; justify-content:flex-end; }
+@media (max-width: 560px) { .pcard { grid-template-columns:1fr; } .pcard .acts { grid-row:auto; grid-column:1; justify-content:flex-start; } }
+.empty { color:var(--muted); padding:10px 2px; }
+.quick { display:grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap:8px; margin-top:8px; }
+.qbox { border:1px dashed var(--line); border-radius:3px; padding:8px; display:flex; gap:6px; align-items:center; flex-wrap:wrap; }
+.qbox label { font-size:13px; color:var(--muted); width:100%; }
+.list { max-height:150px; overflow:auto; }
+.hint { font-size:13px; color:var(--muted); margin:6px 0 0; }
+
+.out-ok { color:var(--ok); } .out-bad { color:var(--bad); } .out-cmd { color:var(--gold); }
+</style>
+</head>
+<body>
+<header>
+  <h1 class="title" id="room">Комната</h1>
+  <span class="status" id="status">…</span>
+  <span class="muted addr" id="addr"></span>
+</header>
+<main>
+  <div class="stack">
+    <section>
+      <h2 class="title">Игроки</h2>
+      <div class="players" id="players"><div class="empty">Никого нет</div></div>
+      <p class="hint">Консоли в той же Wi-Fi сети находят комнату сами: главное меню → «Сетевая игра» → «Найти сервер».</p>
+    </section>
+
+    <section>
+      <h2 class="title">Консоль</h2>
+      <div class="row">
+        <select id="conWho" title="Кому"></select>
+        <input id="conCmd" class="grow mono" list="conCmds" placeholder="команда, например: gold 500 · give 5ace4 10 · heal · tgm · coc Riverwood" autocomplete="off">
+        <button class="primary" onclick="runCmd()">Выполнить</button>
+      </div>
+      <datalist id="conCmds">
+        <option value="gold 1000"><option value="give "><option value="heal"><option value="tgm"><option value="tcl">
+        <option value="coc Whiterun"><option value="coc Riverwood"><option value="tp "><option value="avatar save">
+        <option value="player.additem f 100"><option value="player.setav health 500">
+      </datalist>
+      <div class="quick">
+        <div class="qbox"><label>Золото</label>
+          <input id="qGold" type="number" value="1000" min="1" style="width:110px"><button onclick="quick('gold ' + $('qGold').value)">Выдать</button></div>
+        <div class="qbox"><label>Предмет (ID из игры или из списка)</label>
+          <input id="qItem" list="items" placeholder="5ace4" style="width:120px" class="mono">
+          <input id="qCount" type="number" value="1" min="1" style="width:70px"><button onclick="giveItem()">Выдать</button></div>
+        <div class="qbox"><label>Здоровье и режимы</label>
+          <button onclick="quick('heal')">Вылечить</button><button onclick="quick('tgm')">Бессмертие</button><button onclick="quick('tcl')">Сквозь стены</button></div>
+        <div class="qbox"><label>Перемещение</label>
+          <select id="qPlace"><option value="Whiterun">Вайтран</option><option value="Riverwood">Ривервуд</option><option value="SolitudeOrigin">Солитьюд</option><option value="WindhelmOrigin">Виндхельм</option><option value="RiftenOrigin">Рифтен</option><option value="MarkarthOrigin">Маркарт</option></select>
+          <button onclick="quick('coc ' + $('qPlace').value)">Туда</button>
+          <select id="qTo"></select><button onclick="tpTo()">К игроку</button></div>
+      </div>
+      <datalist id="items">
+        <option value="f">Золото</option><option value="a">Отмычка</option>
+        <option value="5ace4">Железный слиток</option><option value="5ace5">Стальной слиток</option><option value="5ace3">Серебряный слиток</option>
+        <option value="db5d2">Кожа</option><option value="800e4">Полоски кожи</option>
+        <option value="1397d">Железная стрела</option><option value="1397f">Стальная стрела</option><option value="13985">Охотничий лук</option>
+        <option value="3ada3">Чешуя дракона</option><option value="3ada4">Кость дракона</option>
+      </datalist>
+      <div id="conOut" class="box mono" style="margin-top:10px"></div>
+      <p class="hint">Команды выполняет игра выбранного игрока. Встроенные: <b>gold N</b>, <b>give ID N</b>, <b>heal</b>, tgm, tcl, tm, tai, coc Место, tp Имя, avatar save, equip ID, kill ID. Остальное — как консоль ПК (player.additem …, player.setav …). Стрелки ↑/↓ — прошлые команды.</p>
+    </section>
+
+    <section>
+      <h2 class="title">Журнал</h2>
+      <div id="log" class="box mono"></div>
+      <div class="row"><label><input type="checkbox" id="follow" checked> прокручивать</label>
+        <input id="logFilter" class="grow" placeholder="фильтр (имя, слово)"></div>
+    </section>
+  </div>
+
+  <div class="stack">
+    <section>
+      <h2 class="title">Чат</h2>
+      <div id="chat" class="box"></div>
+      <div class="row">
+        <input id="msg" class="grow" placeholder="Сообщение всем (появится на экранах)">
+        <button class="primary" onclick="say()">Отправить</button>
+      </div>
+    </section>
+
+    <section>
+      <h2 class="title">Сервер</h2>
+      <div class="row">
+        <button class="danger" onclick="stopServer()">Выключить сервер</button>
+        <button class="danger" onclick="resetCampaign()">Начать кампанию заново</button>
+      </div>
+      <p class="hint">«Начать кампанию заново» стирает мир сервера (квесты, убитых, сундуки, двери, спутников, сохранения кампании),
+        старое уходит в папку old_campaigns. После этого сервер выключается — запусти его снова. Персонажам на консолях
+        нужна новая игра: старые сохранения кампании станут личными.</p>
+    </section>
+
+    <section>
+      <h2 class="title">Настройки комнаты</h2>
+      <div class="row">Название <input id="sName" class="grow" placeholder="пусто = консоли видят IP сервера"></div>
+      <div class="row">Время суток
+        <select id="sTime"><option value="host">как у первого игрока</option><option value="fixed">всегда одно</option></select>
+        <input id="sHour" type="number" min="0" max="23.9" step="0.5" style="width:80px"> ч
+      </div>
+      <div class="row">Бои между игроками
+        <select id="sPvp"><option value="0">выключены (PvE)</option><option value="1">включены (PvP)</option></select>
+      </div>
+      <div class="row">Пароль панели <input id="sPass" type="password" class="grow" placeholder="пусто = без пароля"></div>
+      <div class="row"><button class="primary" onclick="saveSettings()">Сохранить</button> <span class="muted" id="saved"></span></div>
+    </section>
+
+    <section>
+      <h2 class="title">Мир</h2>
+      <div class="row"><span id="killedCount" class="muted"></span>
+        <button onclick="revive()">Воскресить всех для новых игроков</button></div>
+      <div class="list" id="killed"></div>
+      <h3 class="title">Зоны мира</h3>
+      <div class="list" id="zones"></div>
+      <p class="hint">Хозяин зоны — консоль, чьи NPC настоящие: остальные в той же зоне видят их так же.</p>
+      <h3 class="title">Кампания</h3>
+      <div class="list" id="clans"></div>
+      <h3 class="title">Выгнанные</h3>
+      <div class="list" id="banned"></div>
+      <h3 class="title">Обновления для консолей</h3>
+      <div class="muted" id="updFolder" style="font-size:13px"></div>
+      <div class="list" id="updates"></div>
+    </section>
+  </div>
+</main>
+<script>
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+let lastLog = 0, settingsLoaded = false, logLines = [];
+
+
+async function api(path, data) {
+  const r = await fetch('/api/' + path, data === undefined ? {} :
+    {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data)});
+  return r.json();
+}
+
+let names = {}, bannedList = [];
+function fillSelect(sel, withAll, keep) {
+  const v = sel.value;
+  const opts = (withAll ? [['', 'Все игроки']] : []).concat(Object.entries(names).map(([id, n]) => [id, n + ' (№' + id + ')']));
+  const html = opts.map(([v2, t]) => `<option value="${esc(v2)}">${esc(t)}</option>`).join('');
+  if (sel.dataset.html !== html) { sel.innerHTML = html; sel.dataset.html = html; if (keep) sel.value = v; if (sel.selectedIndex < 0) sel.selectedIndex = 0; }
+}
+function renderPlayers(ps) {
+  names = Object.fromEntries(ps.map(p => [p.id, p.name]));
+  $('players').innerHTML = ps.length ? ps.map(p => `
+    <div class="pcard">
+      <div>${p.level != null ? `<span class="lvl">[${p.level}]</span>` : ''}<span class="name">${esc(p.name)}</span> <span class="muted">№${p.id}</span>${p.host ? ' <span class="chip">хозяин комнаты</span>' : ''}</div>
+      <div class="acts">
+        <button onclick="pick(${p.id})">Консоль</button>
+        <button onclick="sayTo(${p.id})">Написать</button>
+        <button class="danger" onclick="kick(${p.id})">Выгнать</button>
+      </div>
+      ${p.hp != null ? `<div class="bars" title="здоровье ${p.hp}% · магия ${p.mp}% · запас сил ${p.sp}%">
+        <div class="bar hp"><i style="width:${p.hp}%"></i></div><div class="bar mp"><i style="width:${p.mp}%"></i></div>
+        <div class="bar sp"><i style="width:${p.sp}%"></i></div></div>` : ''}
+      <div class="meta">${esc(p.place)} · в игре ${p.minutes} мин · ${esc(p.addr)} · ${p.look ? 'внешность ✓' : 'без внешности'} · вещей ${p.items}${p.mods != null ? ' · модов ' + p.mods : ''}</div>
+    </div>`).join('') : '<div class="empty">Никого нет</div>';
+  fillSelect($('conWho'), true, true);
+  fillSelect($('qTo'), false, true);
+}
+function pick(id) { $('conWho').value = String(id); $('conCmd').focus(); }
+
+/* console */
+const hist = []; let hpos = 0;
+function conPrint(text, cls) {
+  const box = $('conOut'), d = document.createElement('div');
+  d.textContent = text; if (cls) d.className = cls; box.appendChild(d);
+  while (box.childNodes.length > 300) box.removeChild(box.firstChild);
+  box.scrollTop = box.scrollHeight;
+}
+async function send(cmd) {
+  const who = $('conWho').value, whoName = who ? names[who] || ('№' + who) : 'все';
+  conPrint('> [' + whoName + '] ' + cmd, 'out-cmd');
+  const r = await api('cmd', {who: who, cmd: cmd});
+  if (!r.sent) conPrint('  никто не получил (игрок не в сети?)', 'out-bad');
+}
+async function runCmd() {
+  const c = $('conCmd').value.trim(); if (!c) return;
+  hist.push(c); hpos = hist.length; $('conCmd').value = '';
+  await send(c);
+}
+function quick(c) { send(c); }
+function giveItem() {
+  const id = $('qItem').value.trim().replace(/^0x/i, ''); const n = parseInt($('qCount').value) || 1;
+  if (!/^[0-9a-fA-F]{1,8}$/.test(id)) { conPrint('  ID — шестнадцатеричный номер предмета, например 5ace4', 'out-bad'); return; }
+  send('give ' + id + ' ' + n);
+}
+function tpTo() { const id = $('qTo').value; if (id && names[id]) send('tp ' + names[id]); }
+$('conCmd').addEventListener('keydown', e => {
+  if (e.key === 'Enter') runCmd();
+  else if (e.key === 'ArrowUp' && hpos > 0) { $('conCmd').value = hist[--hpos]; e.preventDefault(); }
+  else if (e.key === 'ArrowDown') { hpos = Math.min(hist.length, hpos + 1); $('conCmd').value = hist[hpos] || ''; e.preventDefault(); }
+});
+const CON_RE = /консоль:|console builtin|console:|компил|compile|Кооп: /i;
+
+function renderLog() {
+  const f = $('logFilter').value.trim().toLowerCase();
+  const box = $('log');
+  const lines = f ? logLines.filter(l => l.toLowerCase().includes(f)) : logLines;
+  box.textContent = lines.slice(-1500).join('\n');
+  if ($('follow').checked) box.scrollTop = box.scrollHeight;
+}
+$('logFilter').addEventListener('input', renderLog);
+
+async function tick() {
+  try {
+    const s = await api('state');
+    $('room').textContent = s.room || ('Сервер ' + (s.addresses[0] || ''));
+    $('status').textContent = s.online ? `● открыта · порт ${s.port}` : '● закрыта';
+    $('status').className = 'status ' + (s.online ? 'on' : 'off');
+    $('addr').innerHTML = s.addresses.length ? 'адрес для консолей: ' + s.addresses.map(a => `<b>${esc(a)}:${s.port}</b>`).join(', ') : 'нет сети';
+    renderPlayers(s.players);
+    if (!settingsLoaded) {
+      $('sName').value = s.settings.name; $('sTime').value = s.settings.time_mode; $('sHour').value = s.settings.fixed_hour; $('sPvp').value = s.settings.pvp ? '1' : '0';
+      settingsLoaded = true;
+    }
+    $('killedCount').textContent = `Убитые в общем мире: ${s.world.killed.length}`;
+    $('killed').innerHTML = s.world.killed.map(k => `<span class="chip mono">${k}</span>`).join('');
+    const camp = s.campaign ? [`<div>Номер <b class="mono">${s.campaign.id}</b> · пройдено стадий квестов: ${s.campaign.quests}</div>`] : [];
+    const cl = Object.entries(s.world.clans || {}).map(([n, c]) =>
+      `<div style="margin:4px 0"><b>${esc(n)}</b> <span class="muted">глава ${esc(c.leader)}${c.house ? ' · имение' : ''}${c.chest ? ' · в сундуке ' + c.chest + ' шт.' : ''}${c.quests ? ' · квестов ' + c.quests : ''}</span><br>${c.members.map(esc).join(', ')}</div>`);
+    const mr = (s.world.married || []).map(p => `<div>💍 ${esc(p[0])} и ${esc(p[1])}</div>`);
+    $('clans').innerHTML = (camp.concat(cl, mr).join('') || '<span class="muted">пока нет</span>');
+    $('zones').innerHTML = (s.zones || []).length ? s.zones.map(z =>
+      `<div>${esc(z.name)} — хозяин <b>${esc(z.owner)}</b> <span class="muted">(${z.players.map(esc).join(', ')})</span></div>`).join('')
+      : '<span class="muted">никого в мире</span>';
+    bannedList = s.world.banned;
+    $('updFolder').textContent = 'Папка: ' + s.updates.folder + ' — файлы кладутся как в корень SD-карты (atmosphere/...). На консоли: Сетевая игра → Проверить обновления.';
+    $('updates').innerHTML = s.updates.files.length ? s.updates.files.map(f =>
+      '<div class="mono">' + esc(f.path) + ' <span class="muted">' + Math.ceil(f.size / 1024) + ' КБ</span></div>').join('')
+      : '<span class="muted">пусто</span>';
+    $('banned').innerHTML = s.world.banned.length ? s.world.banned.map((n, i) =>
+      `<div class="row">${esc(n)} <button onclick="unban(${i})">Вернуть</button></div>`).join('') : '<span class="muted">никого</span>';
+
+    const l = await api('log?after=' + lastLog);
+    if (l.lines.length) {
+      const first = lastLog === 0;
+      for (const x of l.lines) {
+        logLines.push(x[1]);
+        if (!first && CON_RE.test(x[1]) && !/панель: команда/.test(x[1])) conPrint('  ' + x[1].replace(/^\[[^\]]*\]\s*/, ''), /нет |ошиб|error/i.test(x[1]) ? 'out-bad' : 'out-ok');
+      }
+      if (logLines.length > 5000) logLines = logLines.slice(-4000);
+      lastLog = l.last;
+      renderLog();
+    }
+    const c = await api('chat');
+    const chat = $('chat'), atEnd = chat.scrollTop + chat.clientHeight >= chat.scrollHeight - 4;
+    chat.innerHTML = c.map(m => `<div><span class="muted">${m[0]}</span> <span class="who">${esc(m[1])}:</span> ${esc(m[2])}</div>`).join('') || '<span class="muted">тишина</span>';
+    if (atEnd) chat.scrollTop = chat.scrollHeight;
+  } catch (e) {
+    $('status').textContent = '● нет связи с сервером'; $('status').className = 'status off';
+  }
+}
+
+async function say() { const t = $('msg').value.trim(); if (t) { await api('say', {text: t}); $('msg').value = ''; tick(); } }
+$('msg').addEventListener('keydown', e => { if (e.key === 'Enter') say(); });
+async function sayTo(id) { const t = prompt('Сообщение для ' + names[id]); if (t) await api('say', {text: t, to: String(id)}); }
+async function kick(id) { if (confirm('Выгнать ' + names[id] + '? Он не сможет вернуться, пока его не вернут в списке «Выгнанные».')) await api('kick', {who: String(id)}); }
+async function unban(i) { await api('unban', {name: bannedList[i]}); tick(); }
+async function stopServer() {
+  if (!confirm('Выключить сервер? Игроки отключатся.')) return;
+  await api('shutdown', {}); document.body.innerHTML = '<h1 class="title" style="color:var(--gold);padding:40px">Сервер выключен</h1>';
+}
+async function resetCampaign() {
+  if (!confirm('Стереть мир кампании и начать заново? Квесты, убитые, сундуки и сохранения кампании на сервере пропадут (копия — в old_campaigns).')) return;
+  if (!confirm('Точно? Игроки отключатся, сервер выключится.')) return;
+  await api('reset', {}); document.body.innerHTML = '<h1 class="title" style="color:var(--gold);padding:40px">Кампания сброшена. Сервер выключен — запусти его снова.</h1>';
+}
+async function revive() { if (confirm('Новые игроки увидят убитых персонажей живыми. Продолжить?')) { await api('revive', {}); tick(); } }
+async function saveSettings() {
+  const d = {name: $('sName').value, time_mode: $('sTime').value, fixed_hour: parseFloat($('sHour').value), pvp: $('sPvp').value === '1'};
+  if ($('sPass').value) d.web_password = $('sPass').value;
+  await api('settings', d); $('saved').textContent = 'сохранено'; setTimeout(() => $('saved').textContent = '', 2000);
+}
+tick(); setInterval(tick, 1000);
+</script>
+</body>
+</html>
